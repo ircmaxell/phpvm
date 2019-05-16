@@ -1,0 +1,4 @@
+vendor
+etc/*
+lib/*
+tmp/*

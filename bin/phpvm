@@ -1,0 +1,270 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . "/../vendor/autoload.php";
+
+use splitbrain\phpcli\CLI;
+use splitbrain\phpcli\Options;
+
+class PHPVM extends CLI {
+
+	protected function setup(Options $options)
+    {
+        $options->setHelp('A very minimal example that does nothing but print a version');
+        $options->registerOption('version', 'print version', 'v');
+        $options->registerCommand('setup', 'Setup env variables');
+        $options->registerCommand('clean', 'Clean up env variables');
+        $options->registerCommand('install', 'Install a PHP version');
+        $options->registerCommand('recompile', 'Recompile a PHP version');
+        $options->registerCommand('uninstall', 'Remove a PHP version');
+        $options->registerCommand('install-dependencies', 'Install dependencies');
+        $options->registerCommand('use', 'Use a specific version by default (still will be overridden by .php-version files');
+        $options->registerCommand('list', 'List installed versions');
+    }
+
+    protected function main(Options $options)
+    {
+        if ($options->getOpt('version')) {
+            $this->info('1.0.0');
+            return;
+        }
+        switch ($options->getCmd()) {
+        	case 'use':
+        		$args = $options->getArgs();
+       			foreach ($args as $arg) {
+       				$this->setDefaultVersion($arg);
+       			}
+       			return;
+       		case 'list':
+       			$ini = parse_ini_file(__DIR__ . '/../etc/config.map');
+       			foreach ($ini['versions'] as $version => $binary) {
+       				$this->success("$version");
+       			}
+       			return;
+        	case 'setup':
+        		$this->doSetup();
+        		return;
+       		case 'clean':
+       			$this->doClean();
+       			return;
+       		case 'install':
+       			$args = $options->getArgs();
+       			foreach ($args as $arg) {
+       				$this->doInstall($arg);
+       			}
+       			return;
+       		case 'recompile':
+       			$args = $options->getArgs();
+       			foreach ($args as $arg) {
+       				$this->doCompile($arg);
+       			}
+       			return;
+       		case 'uninstall':
+       			$args = $options->getArgs();
+       			foreach ($args as $arg) {
+       				$this->doUninstall($arg);
+       			}
+       			return;
+       		case 'install-dependencies':
+       			$this->doInstallDependencies();
+       			return;
+       	}
+        echo $options->help();
+    }
+
+    protected function doSetup() {
+    	$dir = __DIR__;
+    	$home = $_SERVER['HOME'];
+    	$profile = file_get_contents($home . '/.profile');
+    	if (strpos($profile, $dir) !== false) {
+    		return; // Already setup
+    	}
+    	$profile .= "\nPATH=\"$dir:\$PATH\"\n";
+    	file_put_contents($home . '/.profile', $profile);
+    	$version = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . '.' . PHP_RELEASE_VERSION;
+  		$config = 'versions["' . $version . '"]="' . PHP_BINARY . "\"\n";
+  		$config .= 'default_version="' . $version . "\"\n";
+    	file_put_contents(__DIR__ . '/../etc/config.map', $config);
+    }
+
+    protected function doClean() {
+    	$dir = __DIR__;
+    	$home = $_SERVER['HOME'];
+    	$profile = file_get_contents($home . '/.profile');
+    	if (strpos($profile, $dir) === false) {
+    		return; // Already cleaned
+    	}
+    	$pattern = "PATH=\"$dir:\$PATH\"";
+    	$profile = str_replace($pattern, '', $profile);
+
+    	file_put_contents($home . '/.profile', $profile);
+    }
+
+    protected function doInstallDependencies() {
+    	// Todo: extract this and make specific to each environment
+    	$password = get_password("Password for sudo");
+    	$descriptors = [
+    		0 => ["pipe", "r"],
+   			1 => ["pipe", "w"],
+   			2 => ["pipe", "w"],
+   		];
+    	$p = proc_open('sudo --stdin bash -c \'apt-get -y install build-essential autoconf bison libxml2-dev openssl pkg-config libssl-dev libcurl4-openssl-dev libbz2-dev libgdbm-dev libjpeg-dev libpng-dev libfreetype6-dev libicu-dev libiodbc2-dev libxslt1-dev libpq-dev libzip-dev && ln -s /usr/include/x86_64-linux-gnu/curl /usr/include/curl\'', $descriptors, $pipes);
+    	if (!$p) {
+    		$this->error("Could not execute apt-get install");
+    	}
+    	fputs($pipes[0], $password);
+    	fclose($pipes[0]);
+    	while (!feof($pipes[1])) {
+    		$this->info(fgets($pipes[1]));
+    	}
+
+    	do {
+    		$r = [$pipes[1], $pipes[2]];
+    		$w = $e = [];
+    		if (false === ($num_streams = stream_select($r, $w, $e, 200000))) {
+    			$this->error("Stream select failure");
+    		} elseif ($num_streams > 0) {
+    			foreach ($r as $stream) {
+    				if ($stream === $pipes[1]) {
+    					$this->info(fgets($pipes[1]));
+    				} elseif ($stream === $pipes[2]) {
+    					$this->error(fgets($pipes[2]));
+    				} else {
+    					$this->error('Unknown selected stream');
+    					return;
+    				}
+    			}
+    		}
+    	} while (!feof($pipes[1]) && !feof($pipes[2]));
+
+    	proc_close($p);
+    }
+
+    protected function doUninstall($version) {
+    	if (!preg_match('(^\d+\.\d+\.\d+$)', $version)) {
+    		$this->error('Unexpected version format provided: $version');
+    		return;
+    	}
+    	if (!is_dir(__DIR__ . '/../lib/' . $version)) {
+    		$this->error("It looks like $version is not installed...");
+    		return;
+    	}
+    	exec('rm -Rf ' . escapeshellarg(__DIR__ . '/../lib/' . $version));
+    	$this->removeVersion($version);
+    }
+
+    protected function doInstall($version) {
+    	if (!preg_match('(^\d+\.\d+\.\d+$)', $version)) {
+    		$this->error('Unexpected version format provided: $version');
+    		return;
+    	}
+    	if (is_dir(__DIR__ . '/../lib/' . $version)) {
+    		$this->error("It looks like $version may already be installed, attempt clean up?");
+    		return;
+    	}
+    	$this->info("Downloading $version");
+    	$url = "https://www.php.net/distributions/php-$version.tar.gz";
+    	$f = fopen($url, 'r');
+    	if (!$f) {
+    		$this->error("Could not find $version via php.net releases");
+    		return;
+    	}
+
+    	$tmp = tempnam(__DIR__ . '/../tmp', 'php-' . $version);
+    	$installdir = __DIR__ . '/../lib/' . $version;
+    	try {
+    		file_put_contents($tmp, $f);
+    		mkdir($installdir);
+    		$this->info("Extracting");
+    		shell_exec('tar -xzf ' . $tmp . ' --strip-components=1 -C ' . escapeshellarg($installdir));
+    	} finally {
+    		unlink($tmp);
+    	}
+    	$this->doCompile($version);
+    }
+
+    protected function doCompile($version) {
+    	if (!preg_match('(^\d+\.\d+\.\d+$)', $version)) {
+    		$this->error('Unexpected version format provided: $version');
+    		return;
+    	}
+    	
+    	$installdir = __DIR__ . '/../lib/' . $version;
+		$this->info("Compiling");
+		$options = [
+			'--with-openssl',
+			'--with-pcre-jit',
+			'--with-zlib',
+			'--enable-bcmath',
+			'--with-bz2',
+			'--enable-calendar',
+			'--with-curl',
+			'--with-gd',
+			'--enable-mbstring',
+			'--with-mysqli',
+			'--with-pdo-mysql',
+			'--with-pdo-pgsql',
+			'--with-xsl',
+			'--enable-zip',
+			'--without-pear',
+		];
+		shell_exec('cd ' . escapeshellarg($installdir) . ' && ./configure --prefix=' . escapeshellarg($installdir) . ' ' . implode(' ', $options));
+		shell_exec('cd ' . escapeshellarg($installdir) . ' && make -j 16 && make install');
+		$this->addVersion($version, $installdir . '/bin');
+    }
+
+    protected function addVersion($version, $pathToBin) {
+    	$ini = parse_ini_file(__DIR__ . '/../etc/config.map');
+    	$ini['versions'][$version] = realpath($pathToBin);
+    	$this->writeConfigFile($ini);
+    }
+
+    protected function removeVersion($version) {
+    	$ini = parse_ini_file(__DIR__ . '/../etc/config.map');
+    	unset($ini['versions'][$version]);
+    	$this->writeConfigFile($ini);
+    }
+
+    protected function setDefaultVersion($version) {
+    	$ini = parse_ini_file(__DIR__ . '/../etc/config.map');
+    	if (!isset($ini['versions'][$version])) {
+    		$this->error("Could not use $version as it is not currently installed");
+    		return;
+    	}
+    	$ini['default_version'] = $version;
+    	$this->writeConfigFile($ini);
+    }
+
+    protected function writeConfigFile(array $ini) {
+    	$result = '';
+    	foreach ($ini['versions'] as $version => $file) {
+    		$result .= 'versions["' . $version . '"]="' . $file . "\"\n";
+    	}
+    	$result .= "default_version=\"{$ini['default_version']}\"\n";
+    	file_put_contents(__DIR__ . '/../etc/config.map', $result);
+    }
+
+
+}
+
+function get_password($prompt) {
+	$ostty = `stty -g`;
+	system( "stty -echo -icanon min 1 time 0 2>/dev/null || stty -echo cbreak");
+
+	echo "$prompt: ";
+
+	// Get rid of newline when reading stdin
+	$r = substr(fgets(STDIN), 0, -1);
+
+	echo "\n";
+	system ("stty $ostty");
+
+	return $r;
+}
+
+$cli = new PHPVM();
+$cli->run();
+
+
+
+

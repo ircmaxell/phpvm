@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+INSTALL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )/.."
+
+source "$INSTALL_DIR/src/common.sh"
+
+"$_PHP_BIN_PATH/php-config" "$@"
+exit $?
