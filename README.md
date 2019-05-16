@@ -6,7 +6,7 @@ You have been warned.
 
 ## Installation
 
-Clone this repository somewhere on your device (I'd recommend something like `~/.phpvm` but it should work anywhere you have write privliges).
+Clone this repository somewhere on your device (I'd recommend something like `~/.phpvm` but it should work anywhere you have write privileges).
 
 Run composer install on the directory.
 
@@ -24,13 +24,13 @@ This will edit your `~/.profile` file to adjust the path, as well as initialize 
 
 Restart your terminal.
 
-Finally, if you're on Ubuntu, you can install the compile dependnecies automatically (this requires sudo):
+Finally, if you're on Ubuntu, you can install the compile dependencies automatically (this requires sudo):
 
 ```console
 me@local:~$ phpvm install-dependencies
 ```
 
-It will propt for your sudo password. If you're unconfortable with that, you can manually install the dependencies. Just look at the `phpvm` file for information.
+It will prompt for your sudo password. If you're unconfortable with that, you can manually install the dependencies. Just look at the `phpvm` file for information.
 
 ## Installing new versions of PHP
 
@@ -70,7 +70,7 @@ You can also have it automatically switch versions depending on which folder you
 
 It will recursively scan for a `.php-version` file. If it finds one, it will use the install specified inside.
 
-Therefore, if you have multiple projects, each requiring a seperate version of PHP, you can have it automatically switch when you `cd` between the projects.
+Therefore, if you have multiple projects, each requiring a separate version of PHP, you can have it automatically switch when you `cd` between the projects.
 
 Imagine the following structure:
 
