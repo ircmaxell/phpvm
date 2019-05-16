@@ -1,4 +1,13 @@
 {
+	"name": "ircmaxell/phpvm",
+    "description": "A PHP CLI version manager",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Anthony Ferrara",
+            "email": "ircmaxell@gmail.com"
+        }
+	],
 	"require": {
 		"splitbrain/php-cli": "^1.1.5"
 	},
