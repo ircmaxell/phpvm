@@ -120,4 +120,5 @@ Currently, extensions aren't supported. Consider this a todo.
 * Support non-Ubuntu distros for dependency installation
 * Support extensions
 * Support non-compiled versions of PHP (package installed)
+* Support non-released versions of PHP (7.3 branch, 7.4 branch, master, etc)
 * And a lot more...
