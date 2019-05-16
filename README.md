@@ -8,6 +8,12 @@ You have been warned.
 
 Clone this repository somewhere on your device (I'd recommend something like `~/.phpvm` but it should work anywhere you have write privliges).
 
+Run composer install on the directory.
+
+```console
+me@local:path/to/phpvm$ composer install
+```
+
 Then run with an existing PHP install
 
 ```console
