@@ -80,11 +80,18 @@ class PHPVM extends CLI {
     		return; // Already setup
     	}
     	$profile .= "\nPATH=\"$dir:\$PATH\"\n";
-    	file_put_contents($home . '/.profile', $profile);
-    	$version = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . '.' . PHP_RELEASE_VERSION;
-  		$config = 'versions["' . $version . '"]="' . PHP_BINARY . "\"\n";
-  		$config .= 'default_version="' . $version . "\"\n";
-    	file_put_contents(__DIR__ . '/../etc/config.map', $config);
+	file_put_contents($home . '/.profile', $profile);
+
+	if (!file_exists(__DIR__ . '/../etc/config.map')) {
+		mkdir(__DIR__ . '/../lib/system/');
+		symlink(PHP_BINARY, __DIR__ . '/../lib/system/php');
+		// Todo: find other commands (phar, phpdbg, phpize, php-config) and symlink them as well for initial install
+		$version = PHP_MAJOR_VERSION . '.' . PHP_MINOR_VERSION . '.' . PHP_RELEASE_VERSION;
+  		$config = 'versions["' . $version . '"]="' . __DIR__ . "/../lib/system\"\n";
+		$config .= 'default_version="' . $version . "\"\n";
+
+		file_put_contents(__DIR__ . '/../etc/config.map', $config);
+	}
     }
 
     protected function doClean() {
@@ -108,7 +115,7 @@ class PHPVM extends CLI {
    			1 => ["pipe", "w"],
    			2 => ["pipe", "w"],
    		];
-    	$p = proc_open('sudo --stdin bash -c \'apt-get -y install build-essential autoconf bison libxml2-dev openssl pkg-config libssl-dev libcurl4-openssl-dev libbz2-dev libgdbm-dev libjpeg-dev libpng-dev libfreetype6-dev libicu-dev libiodbc2-dev libxslt1-dev libpq-dev libzip-dev && ln -s /usr/include/x86_64-linux-gnu/curl /usr/include/curl\'', $descriptors, $pipes);
+    	$p = proc_open('sudo --stdin bash -c \'apt-get -y install build-essential autoconf bison libxml2-dev openssl pkg-config libssl-dev libcurl4-openssl-dev libbz2-dev libgdbm-dev libjpeg-dev libpng-dev libfreetype6-dev libicu-dev libiodbc2-dev libxslt1-dev libpq-dev libzip-dev libsqlite3-dev libonig-dev  && ln -s /usr/include/x86_64-linux-gnu/curl /usr/include/curl\'', $descriptors, $pipes);
     	if (!$p) {
     		$this->error("Could not execute apt-get install");
     	}
@@ -206,6 +213,7 @@ class PHPVM extends CLI {
 			'--with-pdo-pgsql',
 			'--with-xsl',
 			'--enable-zip',
+			'--with-zip',
 			'--without-pear',
 		];
 		shell_exec('cd ' . escapeshellarg($installdir) . ' && ./configure --prefix=' . escapeshellarg($installdir) . ' ' . implode(' ', $options));
