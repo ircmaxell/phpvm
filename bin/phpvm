@@ -215,6 +215,7 @@ class PHPVM extends CLI {
 			'--enable-zip',
 			'--with-zip',
 			'--without-pear',
+      '--with-ffi'
 		];
 		shell_exec('cd ' . escapeshellarg($installdir) . ' && ./configure --prefix=' . escapeshellarg($installdir) . ' ' . implode(' ', $options));
 		shell_exec('cd ' . escapeshellarg($installdir) . ' && make -j 16 && make install');
